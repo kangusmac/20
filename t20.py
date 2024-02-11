@@ -164,20 +164,30 @@ def vis_session_state():
 
 
 def load_data():
-    st.write('### Tømninger:')
     st.write(f'## {format_menu_key()}')
+    st.write('### Tømninger:')
     file = csv_dict[session_state[menu_key]]
     df = pd.read_csv(file)
-    df = extract_street_city_country3(df)
-    df = extract_house_number(df)
+    #df = extract_street_city_country3(df)
+    #df = extract_house_number(df)
     df['postnr'] = df['postnr'].astype(str)
-    dff = df.groupby(['street', 'postnr', 'beholder'])['antal'].sum(numeric_only=True).reset_index()
+    #df['postnr'] = df['postnr'].str.zfill(4)
+    #dff = df.groupby(['street', 'postnr', 'beholder'])['antal'].sum(numeric_only=True).reset_index()
+    ##dff = df[['street', 'postnr', 'beholder','antal','vejnavn', 'husnr']]
+    dff = df.groupby(['street', 'postnr', 'beholder','vejnavn','husnr'])['antal'].sum(numeric_only=True)
+    dff = dff.reset_index()
+    dff.sort_values(by=['vejnavn', 'husnr'], ascending=True, inplace=True)
+    dff.drop(columns=['vejnavn', 'husnr'], inplace=True)
+    dff.rename(columns={'street':'Adresse', 'antal':'antal'}, inplace=True)
+
+    
     st.dataframe(dff, use_container_width=True, hide_index=True)
+    #st.table(dff)
 
 
 def load_info():
-    st.write('### Info:')
     st.write(f'## {format_menu_key()}')
+    st.write('### Info:')
     file = csv_info_dict[session_state[menu_key]]
 
     df = pd.read_csv(file)
@@ -216,7 +226,7 @@ def format_menu_key():
     return ' '.join(session_state[menu_key].split("_")).title()
 def se_kort():
     link = mml.get_link(session_state[menu_key])
-    st.markdown(f'- Se kort over [placering]({link})')
+    st.markdown(f'- Se placering på [kort]({link})')
 
 def setup_sidebar():
     sidebar.title('Menu')

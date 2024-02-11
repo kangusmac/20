@@ -112,13 +112,15 @@ def extract_street_city_country3(df):
 
 def extract_house_number(df):
     '''split the street column on the first occurence of a space and a number'''
-    df[['street_part', 'house_number', 'house_anyting']] = df['street'].str.split(r' (\d+)', n=1,expand=True)
+    df[['vejnavn', 'husnr', 'appendiks']] = df['street'].str.split(r' (\d+)', n=1,expand=True)
     '''remove duplicates'''
     #df.drop_duplicates(inplace=True)
     '''sort the values in the street column'''
-    df.sort_values(by=['street_part', 'house_number'], ascending=True, inplace=True)
+    # ensure column house_number is of type int
+    df['husnr'] = df['husnr'].astype(int)
+    df.sort_values(by=['vejnavn', 'husnr'], ascending=True, inplace=True)
     '''reset the index'''
-    df.reset_index(drop=True, inplace=True)
+    #df.reset_index(drop=True, inplace=True)
     '''join the street and house_number columns'''
     #df['street'] = df['street'].str.cat(df['house_number'], sep=" ")
     '''drop the house_number column'''
