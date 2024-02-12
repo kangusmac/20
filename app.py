@@ -181,8 +181,8 @@ def load_data():
     dff.rename(columns={'street':'Adresse', 'antal':'antal'}, inplace=True)
 
     
-    st.dataframe(dff, use_container_width=True, hide_index=True)
-    #st.table(dff)
+    #st.dataframe(dff, use_container_width=True, hide_index=True)
+    st.table(dff)
 
 
 def load_info():
