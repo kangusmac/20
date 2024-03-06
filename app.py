@@ -199,6 +199,12 @@ def load_info():
     st.text('Fordelt på følgende størrelser(liter):')
     antal_type = df.groupby(['type'])[["antal"]].sum(numeric_only=True).reset_index()
     antal_type = antal_type.set_index('type')
+    # rename index to størrelse
+    antal_type.index.name = ['størrelse']
+    # display the index name in the dataframe
+    
+
+
     st.write(antal_type.T)
     st.divider()
 
