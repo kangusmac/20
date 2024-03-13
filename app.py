@@ -97,7 +97,8 @@ def vis_details():
     st.write(f'Følgende materiel er tilmeldt adressen:')
     resultat = session_state[search_result]
     resultat = pd.DataFrame(resultat)
-    resultat = resultat.groupby(['adresse', 'beholder'])['antal'].sum()
+    #resultat = resultat.groupby(['adresse', 'beholder'])['antal'].sum()
+    resultat = resultat.groupby(['adresse', 'beholder']).size()
 
 
     col3, col4 = st.columns(2)
@@ -129,24 +130,41 @@ def groupby2():
     df.drop(columns=['vejnavn', 'husnr'], inplace=True)
     return df
 
-def groupby(column='', column2=''):
+
+
+def groupby(betingelse = None, info = None):
+
+    # Betingelse : bool
+
+    # info : str
+    #
     
-    gruppe = oversæt[session_state[menu_key]]
-    df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
+    # gruppe = oversæt[session_state[menu_key]]
+    # df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
+
+    df = gruppe()
     
-    if column2 == '':
-        columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr']
-    else:
-        if column2 in df.columns:
-           columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'] + [column2]
-        else:
-            raise AttributeError(f'{column2} not in columns')
-    if column == '':
+    # default kolonner
+    kolonner = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr']
+  
+    if info is not None:
+        kolonner.append(info)
+
+    # if column2 == '':
+    #     columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr']
+    # else:
+    #     if column2 in df.columns:
+    #        columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'] + [column2]
+    #     else:
+    #         raise AttributeError(f'{column2} not in columns')
+    
+    if  betingelse is None:
         #df = df.groupby(['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'])['antal'].sum(numeric_only=True)
-        df = df.groupby(columns)['antal'].sum(numeric_only=True)
+        df = df.groupby(kolonner)['antal'].sum(numeric_only=True)
     else:
         #df = df[df[column]].groupby(['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'])['antal'].sum(numeric_only=True)
-        df = df[df[column]].groupby(columns)['antal'].sum(numeric_only=True)
+        df = df[df[betingelse]].groupby(kolonner)['antal'].sum(numeric_only=True)
+    
     df = df.reset_index()
     df.sort_values(by=['vejnavn', 'husnr'], ascending=True, inplace=True)
     df.drop(columns=['vejnavn', 'husnr'], inplace=True)
@@ -157,30 +175,45 @@ def groupby(column='', column2=''):
 def load_data():
     st.write(f'## {session_state[menu_key]}')
     st.write('### Tømninger:')
-    df = groupby2()
+    df = groupby()
     #st.table(df)
     st.dataframe(df, use_container_width=True, hide_index=True)
-    
-    
+    if st.checkbox('Debug', key='debug', value=False):
+        st.data_editor(LILLEBIL_DATA)    
 
+def gruppe():
+    gruppe = oversæt[session_state[menu_key]]
+    df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
+    return df
+
+def angiv_antal(kolonnenavn):
+    df = gruppe()
+    #pd.DataFrame(df['type'].value_counts())
+    #rename index to volumen
+    df[kolonnenavn].value_counts().rename_axis('volumen').reset_index(name='antal')#.to_csv('volumen.csv', index=False)
+    #df['type'].value_counts().reset_index(name='antal')
+    return df[kolonnenavn].value_counts().rename_axis('volumen').reset_index(name='antal')
 
 def load_info():
     st.write(f'## {session_state[menu_key]}')
     st.write('### Info:')
 
-    # gruppe = oversæt[session_state[menu_key]]
-    # df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
-    df = groupby()
+    #gruppe = oversæt[session_state[menu_key]]
+    #df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
+    #df = groupby()
     #df['postnr'] = df['postnr'].astype(str) 
 
-    antal = df['antal'].sum()
-    st.write(f'Antal tømninger: {antal}')
+    # antal_alt= df['antal'].sum()
+    # st.write(f'Antal tømninger: {antal_alt}')
     
     st.text('Fordelt på følgende størrelser(liter):')
-    antal_type = df.groupby(['type'])[["antal"]].sum(numeric_only=True).reset_index()
-    antal_type = antal_type.set_index('type')
-    antal_type.index.name = 'Volumen'
-    st.dataframe(antal_type.T)
+    #antal_type = df.groupby(['type'])[["antal"]].sum(numeric_only=True).reset_index()
+    antal_type = angiv_antal('type')
+    st.dataframe(antal_type, use_container_width=True, hide_index=True)
+ 
+    # antal_type = antal_type.set_index('type')
+    # antal_type.index.name = 'Volumen'
+    # st.dataframe(antal_type.T)
     
     st.divider()
 
@@ -198,7 +231,7 @@ def load_info():
     st.write('Fremsætninger:')
     #antal_fremsætninger = df[df['fremsætter']].groupby(['adresse', 'postnr', 'beholder'])['antal'].sum(numeric_only=True).reset_index()
     fremsætninger = groupby('fremsætter')
-    st.write(f' Antal: {df["fremsætter"].sum()}')
+    # st.write(f' Antal: {df["fremsætter"].sum()}')
     st.write(f' Antal fremsætninger: {fremsætninger["antal"].sum()}')
     if st.checkbox('Vis Adresser', key='2', value=False):
         st.dataframe(fremsætninger, use_container_width=True, hide_index=True)
