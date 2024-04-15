@@ -1,29 +1,35 @@
 import streamlit as st
 import pandas as pd
 import mymapslinks as mml
-from pathlib import Path
+#from pathlib import Path
 from enum import Enum
-import re
-from frekvens import næste_tømningsdag, find_frekvens
+import logging
+#import re
+# from frekvens import næste_tømningsdag, find_frekvens
+# from menupunkt import menupunkt_indeks, menupunkter
+# from lillebil import find_adresse, hent_tømninger, volumen, hent_info, LILLEBIL_DATA
+from materiel import *
+
+if __name__ == "__main__":
+    logger = logging.getLogger('lillebil_app')
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    File_handler = logging.FileHandler('lillebil_app.log')
+    File_handler.setFormatter(formatter)
+    logger.addHandler(File_handler)
 
 class Mypage(Enum):
     TABLE = 0
     INFO = 1
     SEARCH = 2
     VIS_DETAILJER = 3
+    TEST = 4
+    DEBUG = 5
 
 
 @classmethod
 def formatted_options(cls):
     return [x.name for x in cls]
 
-LILLEBIL_DATA = pd.read_csv('lillebil_data.csv')
-LILLEBIL_DATA['postnr'] = LILLEBIL_DATA['postnr'].astype(str)
-
-
-menupunkter= ['Mandag - Lige', 'Mandag - Ulige', 'Torsdag - Lige', 'Torsdag - Ulige']
-# oversæt menupunkter til kolonnenavne
-oversæt = {'Mandag - Lige': 'ml', 'Mandag - Ulige': 'mu', 'Torsdag - Ulige': 'tu', 'Torsdag - Lige': 'tl'}
 
 
 # --------------------------------------------- Config ---------------------------------------------
@@ -36,6 +42,7 @@ display_item = 'display_item'
 search_result = 'search_result'
 
 session_state = st.session_state
+
 sidebar = st.sidebar
 
 def update_session_state(key, value):
@@ -43,31 +50,42 @@ def update_session_state(key, value):
 
 def update_menu_key():
     session_state[menu_key] = session_state['dag_uge']
+    session_state[page] = Mypage.TABLE.value
 
 def init_session_state():
     if page not in session_state:
-        #update_session_state(menu_key, list(csv_dict.keys())[0])
-        update_session_state(menu_key, menupunkter[0])
+        update_session_state(menu_key, menupunkter[menupunkt_indeks])
         update_session_state(page, Mypage.TABLE.value)
 
+def menupunkt():
+    return session_state[menu_key]
 
+def vis_session_state():
+    st.write(session_state)
 
-# søg på adresse
-def find_adresse():
-    adresse = session_state['search']
-    adresse_fundet = []
-    adresse_regex = re.compile(rf'{adresse}', re.IGNORECASE)
-    for row in LILLEBIL_DATA.itertuples():
-        if adresse_regex.findall(row.adresse):
-            adresse_fundet.append(row)
+def vis_data():
+    valgt_menupunkt = menupunkt()
+    st.write(f'## {valgt_menupunkt} Uge {nummeret_på_ugen}')
+    st.write('### Tømninger:')
+    logger.info(f'Viser tømninger for {session_state[menu_key]}')
+    #df = hent_tømninger(hent_menupunkt())
+    hent_tømninger(menupunkt())
+    df = hent_info()
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    if st.checkbox('Debug', key='debug', value=False):
+        st.data_editor(LILLEBIL_DATA)    
 
-    update_session_state(page, Mypage.SEARCH.value)
-    update_session_state(search_result, adresse_fundet)
 
 def vis_adresse():
-    resultat = session_state[search_result]
-    resultat = pd.DataFrame(resultat)
-    resultat = resultat.drop_duplicates(subset=['adresse'])
+    try:
+         
+        resultat = find_adresse(session_state['search'])
+    
+    except ValueError as e:
+        #st.write(e)
+        st.write(f'Ingen adresse fundet: {session_state["search"]}')
+        return
+     
     for row in resultat.itertuples():
         col1,col2 = st.columns([1,2])
         col1.write(row.adresse)
@@ -77,27 +95,18 @@ def vis_adresse():
         col1.write(f'Næste tømning: {dag} {dato}')
         st.markdown('---')
 
-def show_adresse(row):
-    result = session_state[search_result]
-    st.dataframe(result)
-
-
 def update_details(row):
     update_session_state(page, Mypage.VIS_DETAILJER.value)
     update_session_state(display_item, row)
 
 def vis_details():
     row = session_state[display_item]
-    #row =pd.DataFrame(row)
     adresse = row.adresse
-    #gade, postnr,by, land = row.adresse.split(',')
     st.subheader(adresse, anchor='details',divider=True)
     
 
     st.write(f'Følgende materiel er tilmeldt adressen:')
-    resultat = session_state[search_result]
-    resultat = pd.DataFrame(resultat)
-    #resultat = resultat.groupby(['adresse', 'beholder'])['antal'].sum()
+    resultat = find_adresse(adresse)
     resultat = resultat.groupby(['adresse', 'beholder']).size()
 
 
@@ -114,123 +123,43 @@ def vis_details():
             st.write(f'{beholder}')
          with col2:
             st.write(f'{antal:>}')
-    st.write(f'Næste tømning: {næste_tømningsdag(row.tur)}')
-    
-
-def vis_session_state():
-    st.write(session_state)
-
-def groupby2():
-    gruppe = oversæt[session_state[menu_key]]
-    df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
-    #df['postnr'] = df['postnr'].astype(str)
-    df = df.groupby(['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'])['antal'].sum(numeric_only=True)
-    df = df.reset_index()
-    df.sort_values(by=['vejnavn', 'husnr'], ascending=True, inplace=True)
-    df.drop(columns=['vejnavn', 'husnr'], inplace=True)
-    return df
+    dag, dato = næste_tømningsdag(row.tur)
+    st.write(f'Næste tømning: {dag} {dato}')
+    #st.write(f'Næste tømning: {næste_tømningsdag(row.tur)}')
+    st.write(f'Tømmes {find_frekvens(row.tur)}')
 
 
-
-def groupby(betingelse = None, info = None):
-
-    # Betingelse : bool
-
-    # info : str
-    #
-    
-    # gruppe = oversæt[session_state[menu_key]]
-    # df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
-
-    df = gruppe()
-    
-    # default kolonner
-    kolonner = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr']
-  
-    if info is not None:
-        kolonner.append(info)
-
-    # if column2 == '':
-    #     columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr']
-    # else:
-    #     if column2 in df.columns:
-    #        columns = ['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'] + [column2]
-    #     else:
-    #         raise AttributeError(f'{column2} not in columns')
-    
-    if  betingelse is None:
-        #df = df.groupby(['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'])['antal'].sum(numeric_only=True)
-        df = df.groupby(kolonner)['antal'].sum(numeric_only=True)
-    else:
-        #df = df[df[column]].groupby(['adresse', 'postnr', 'beholder', 'vejnavn', 'husnr'])['antal'].sum(numeric_only=True)
-        df = df[df[betingelse]].groupby(kolonner)['antal'].sum(numeric_only=True)
-    
-    df = df.reset_index()
-    df.sort_values(by=['vejnavn', 'husnr'], ascending=True, inplace=True)
-    df.drop(columns=['vejnavn', 'husnr'], inplace=True)
-    return df
-        
-
-    
-def load_data():
-    st.write(f'## {session_state[menu_key]}')
-    st.write('### Tømninger:')
-    df = groupby()
-    #st.table(df)
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    if st.checkbox('Debug', key='debug', value=False):
-        st.data_editor(LILLEBIL_DATA)    
-
-def gruppe():
-    gruppe = oversæt[session_state[menu_key]]
-    df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
-    return df
-
-def angiv_antal(kolonnenavn):
-    df = gruppe()
-    #pd.DataFrame(df['type'].value_counts())
-    #rename index to volumen
-    df[kolonnenavn].value_counts().rename_axis('volumen').reset_index(name='antal')#.to_csv('volumen.csv', index=False)
-    #df['type'].value_counts().reset_index(name='antal')
-    return df[kolonnenavn].value_counts().rename_axis('volumen').reset_index(name='antal')
-
-def load_info():
+def vis_info():
     st.write(f'## {session_state[menu_key]}')
     st.write('### Info:')
-
-    #gruppe = oversæt[session_state[menu_key]]
-    #df = LILLEBIL_DATA[LILLEBIL_DATA[gruppe]]
-    #df = groupby()
-    #df['postnr'] = df['postnr'].astype(str) 
-
-    # antal_alt= df['antal'].sum()
-    # st.write(f'Antal tømninger: {antal_alt}')
+    #antal_alt= hent_tømninger(hent_menupunkt())['antal'].sum()
+    antal_alt = hent_info(sum=True)
+    st.write(f'Antal tømninger: {antal_alt}')
     
     st.text('Fordelt på følgende størrelser(liter):')
-    #antal_type = df.groupby(['type'])[["antal"]].sum(numeric_only=True).reset_index()
-    antal_type = angiv_antal('type')
-    st.dataframe(antal_type, use_container_width=True, hide_index=True)
+    #antal = volumen(hent_menupunkt(),'type')
+    antal = volumen('type')
+    st.dataframe(antal)
  
-    # antal_type = antal_type.set_index('type')
-    # antal_type.index.name = 'Volumen'
-    # st.dataframe(antal_type.T)
-    
     st.divider()
 
-
+    #st.write('Sække til ombytning:')
+    #antal_sække = df[df['sæk']].groupby(['adresse','postnr', 'beholder', 'fremsætter'])['antal'].sum(numeric_only=True).reset_index()
+    sække = hent_info('sæk', 'fremsætter')
 
     st.write('Sække til ombytning:')
-    #antal_sække = df[df['sæk']].groupby(['adresse','postnr', 'beholder', 'fremsætter'])['antal'].sum(numeric_only=True).reset_index()
-    sække = groupby('sæk', 'fremsætter')
     st.write(f' Antal: {sække["antal"].sum()}')
-    if st.checkbox('Vis Adresser', key='1', value=True):
+        #st.dataframe(sække, use_container_width=True, hide_index=True)
+    if not sække.empty:
+        #st.divider()
+        if st.checkbox('Vis Adresser', key='1', value=True):
             
-        st.dataframe(sække, use_container_width=True, hide_index=True)
-        st.divider()
+            st.dataframe(sække, use_container_width=True, hide_index=True)
+            st.divider()
 
     st.write('Fremsætninger:')
     #antal_fremsætninger = df[df['fremsætter']].groupby(['adresse', 'postnr', 'beholder'])['antal'].sum(numeric_only=True).reset_index()
-    fremsætninger = groupby('fremsætter')
+    fremsætninger = hent_info('fremsætter')
     # st.write(f' Antal: {df["fremsætter"].sum()}')
     st.write(f' Antal fremsætninger: {fremsætninger["antal"].sum()}')
     if st.checkbox('Vis Adresser', key='2', value=False):
@@ -248,8 +177,10 @@ def setup_sidebar():
         "Vælg Dag og Uge",
         key= 'dag_uge',
         options=menupunkter,
-        on_change=update_menu_key)
-        #on_change=update_session_state, args=(menu_key, session_state['dag_uge']))
+
+        index=menupunkt_indeks,
+        on_change=update_menu_key
+        )
     
     with sidebar.expander('Vis', expanded=True):
         st.button('Vis Info', key='info', on_click=update_session_state, args=(page, Mypage.INFO.value))
@@ -259,13 +190,14 @@ def setup_sidebar():
     
     with sidebar.expander('Søg', expanded=False):
         #st.text_input('Søg efter adresse', key='search', on_change=update_session_state, args=(page, Mypage.SEARCH.value))
-        st.text_input('Søg på adresse', key='search', on_change=find_adresse,)# args=(session_state['search'],))
+        st.text_input('Søg på adresse', key='search', on_change=update_session_state, args=(page, Mypage.SEARCH.value))
 
-        if st.button('Søg', key='search_button', on_click=find_adresse,):# args=(session_state['search'],)):
+        if st.button('Søg', key='search_button', on_click=update_session_state, args=(page, Mypage.SEARCH.value)):# args=(session_state['search'],)):
             #find_address(session_state['search'])
             pass
-
-
+    with sidebar.expander('Debug', expanded=False):
+        st.button('Vis Session State', key='session_state', on_click=update_session_state, args=(page, Mypage.DEBUG.value))
+        
 if __name__ == "__main__":
 
         init_session_state()
@@ -273,15 +205,17 @@ if __name__ == "__main__":
 
         if session_state[page] == Mypage.SEARCH.value:
             vis_adresse()
-
         if session_state[page] == Mypage.TABLE.value:
-            load_data()
+            vis_data()
         elif session_state[page] == Mypage.INFO.value:
-            load_info()
+            vis_info()
         elif session_state[page] == Mypage.VIS_DETAILJER.value:
             vis_details()
+        elif session_state[page] == Mypage.DEBUG.value:
+            vis_session_state()
         else:
              st.write('No Matching Page')
+
 
 
         

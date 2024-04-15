@@ -5,8 +5,6 @@ from datetime import datetime, timedelta
 import logging
 import functools
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.disable(logging.DEBUG)
 
 
 class Frekvens(Enum):
@@ -197,7 +195,21 @@ def næste_tømningsdag(tur: str):
     uge_dag = næste_ugedag(resultat, frequency_value)
     return format_date(uge_dag)
     
-    
+    # number of  current week
+
+def get_week_number():
+    '''
+    Returns the current week number
+    '''
+    today = datetime.date.today()
+    return today.isocalendar()[1]
+
+
+if __name__ == "__main__":
+    nuværende_uge = get_week_number()
+    print(nuværende_uge)
+
+
 
 
 
