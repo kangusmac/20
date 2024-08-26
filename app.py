@@ -168,7 +168,7 @@ def vis_info():
 
     
 def se_kort():
-    link = mml.get_link(session_state[menu_key])
+    link = mml.get_map_url(session_state[menu_key])
     st.markdown(f'- Se placering på [kort]({link})')
 
 def setup_sidebar():
@@ -186,7 +186,7 @@ def setup_sidebar():
         st.button('Vis Info', key='info', on_click=update_session_state, args=(page, Mypage.INFO.value))
         st.button('Vis Tømninger', key='table', on_click=update_session_state, args=(page, Mypage.TABLE.value))
         
-        #se_kort()
+        se_kort()
     
     with sidebar.expander('Søg', expanded=False):
         #st.text_input('Søg efter adresse', key='search', on_change=update_session_state, args=(page, Mypage.SEARCH.value))

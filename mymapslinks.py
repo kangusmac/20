@@ -1,10 +1,15 @@
 
 mymaps = dict()
 
-mymaps['torsdag_ulige'] = 'https://www.google.com/maps/d/edit?mid=1oUwe_R-p7j4qMrGNvJIy07Gtq6H1rkc&usp=sharing'
-mymaps['mandag_lige'] = 'https://www.google.com/maps/d/u/0/edit?mid=1dkq6YEoa94RHU7viuleEUAxB6lumWZ0&usp=sharing'
-#mymaps['mandag_ulige'] = 'https://www.google.com/maps/d/edit?mid=1zMM_9uFuyvc8Tc-YaniWMh6U1JybRPk&usp=sharing'
-mymaps['torsdag_lige'] = 'https://www.google.com/maps/d/u/0/edit?mid=1wv1JDhmZOQ5m3JAeLVjOt0C4xdk_L3w&usp=sharing'
-mymaps['mandag_ulige'] = 'https://www.google.com/maps/d/edit?mid=1zMM_9uFuyvc8Tc-YaniWMh6U1JybRPk&usp=sharing'
-def get_link(key):
+
+
+
+mymaps['Mandag - Ulige']  = 'https://www.google.com/maps/d/edit?mid=1J9x-AU7mJNjT38D7-ZtjsYor3fVFd0M&usp=sharing'
+mymaps['Torsdag - Ulige'] = 'https://www.google.com/maps/d/edit?mid=1WGo3xHxQe3WWtRjntNSBZThaLFkwbkg&usp=sharing'
+mymaps['Mandag - Lige']   = 'https://www.google.com/maps/d/edit?mid=1Qb5JMxIHftZCh2_NqvYR0XGS3ac2azk&usp=sharing'
+mymaps['Torsdag - Lige']  = 'https://www.google.com/maps/d/edit?mid=19bU0xF1ZJUwMSSjM2A_QwoJgIyPAz90&usp=sharing'
+
+
+
+def get_map_url(key):
     return mymaps[key]
